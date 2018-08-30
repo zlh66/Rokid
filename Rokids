@@ -1,5 +1,5 @@
 
-# Rokid
+# SoundController
 ```
 using System;
 using System.Collections.Generic;
@@ -192,3 +192,96 @@ namespace SoundX.Controllers
     }
 }
 ```
+# ProductInfo
+```
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
+using System.Data;
+using System.Data.SqlClient;
+
+namespace SoundX.Models
+{
+    public class ProductInfo
+    {
+        public ProductInfo()
+        {
+        }
+
+        public string getProductInfo(string slots)
+        {
+            string sReturn = "";
+            string message = "";
+
+            //将词表部分转换成JOBject对象（关于词表的Json）
+            JObject slotObject = JObject.Parse(slots);
+            //遍历词表，根据词表的值，处理查询
+            //在【活动】这个意图中，目前定义了product和user两个词表，
+            //其中，user包含“学生、教师、办公、游戏、商业”等词汇
+            //product包含笔记本、PC、电脑、台式机等词汇
+
+            //string strSQL = "select compaignTitle,description from compaign where storeId=" + storeID + " and startdate<='" + DateTime.Now.ToString("yyyy-MM-dd") + "' and enddate>='" + DateTime.Now.ToString("yyyy-MM-dd") + "'";
+            string strSQL = "select productName,target,specification,classify from product where 1=1 ";
+            foreach (var item in slotObject)
+            {
+                if (item.Key.Equals("user"))
+                {
+                    JObject temp = JObject.Parse(item.Value.ToString());
+                    string user = temp["value"].ToString();
+                    strSQL = strSQL + " and target='" + user + "' ";
+                }
+
+                if (item.Key.Equals("computer"))
+                {
+                    JObject temp = JObject.Parse(item.Value.ToString());
+                    string computer = temp["value"].ToString();
+
+                    switch (computer)
+                    {
+                        case "笔记本":
+                            strSQL = strSQL + " and classify='笔记本'";
+                            break;
+                        case "PC":
+                            strSQL = strSQL + " and classify='台式机'";
+                            break;
+                        case "电脑" :
+                            //包含所有pc和笔记本
+                            strSQL = strSQL + " and (classify='笔记本' or classify='台式机')";
+                            break;
+                        case "台式机":
+                            strSQL = strSQL + " and classify='台式机'";
+                            break;
+                    }
+                }
+            }
+
+            SqlConnection conn = new SqlConnection("Server=localhost;DataBase=smartretail;uid=sa;pwd=cs1128!*");
+            conn.Open();
+            SqlCommand sqlComm = new SqlCommand(strSQL, conn);
+            SqlDataReader reader = sqlComm.ExecuteReader();
+            if (reader.HasRows)
+            {
+                while (reader.Read())
+                {
+                    string productName = reader["productName"].ToString();
+                    string specification = reader["specification"].ToString();
+                    string target = reader["target"].ToString();
+                    string classify = reader["classify"].ToString();
+
+                    message = productName + "。"+target+"专用。"+ specification + "。";
+                }
+            }
+            else
+            {
+                message = "暂时没有满足要求的机器哦，敬请期待。";
+            }
+            reader.Close();
+            conn.Close();
+
+            sReturn = Utility.generateResponse(message);
+            return sReturn;
+        }
+    }
+}
+
